@@ -1,3 +1,4 @@
+#include "stdafx.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -52,6 +53,17 @@ struct MyStruct
 	char caracter[25];
 }SEQ_TOKENS[5000];
 
+struct MyStruct2
+{
+	char variavel_nome[50];
+	int variavel_tipo;
+	char variavel_valor[10];
+	int variavel_escopo;
+}TABELA_SIMBOLOS[5000];
+int INDICE_ESCOPO = -1;
+int INDICE_SIMBOLO = 0;
+int temporario;
+int tipo_var;
 
 //Indice do token atual
 int NUM_TOKEN_ATUAL = 0;
@@ -1895,6 +1907,7 @@ int lookhead() {
 bool programa() {
 
 	if (SEQ_TOKENS[NUM_TOKEN_ATUAL++].valor == PROGRAMA) {
+		INDICE_ESCOPO++;
 		if (identificador(SEQ_TOKENS[NUM_TOKEN_ATUAL++].valor) == true) {
 			if (bloco() == true) {
 					if (SEQ_TOKENS[NUM_TOKEN_ATUAL++].valor == FIMPROGRAMA)
@@ -1955,11 +1968,25 @@ bool parte_declaracao_variavel() {
 //Verif 4
 bool declaracao_variavel() {
 	if (tipo(SEQ_TOKENS[NUM_TOKEN_ATUAL++].valor) == true) {
+		tipo_var = SEQ_TOKENS[NUM_TOKEN_ATUAL - 1].valor;
 		if (SEQ_TOKENS[NUM_TOKEN_ATUAL++].valor == DOISPONTOS) {
 			if (lista_identificadores() == true) {
 
-				if (SEQ_TOKENS[NUM_TOKEN_ATUAL++].valor == PONTOEVIRGULA)
+				
+				if (SEQ_TOKENS[NUM_TOKEN_ATUAL++].valor == PONTOEVIRGULA) {
+  					temporario = NUM_TOKEN_ATUAL-2;
+					while (SEQ_TOKENS[temporario].valor != INTEIRO && SEQ_TOKENS[temporario].valor != BOOLEANO) {
+						TABELA_SIMBOLOS[INDICE_SIMBOLO].variavel_escopo = INDICE_ESCOPO;
+						if(tipo_var == INTEIRO) TABELA_SIMBOLOS[INDICE_SIMBOLO].variavel_tipo = INTEIRO;
+						else if (tipo_var == BOOLEANO) TABELA_SIMBOLOS[INDICE_SIMBOLO].variavel_tipo = BOOLEANO;
+						strcpy(TABELA_SIMBOLOS[INDICE_SIMBOLO++].variavel_nome, SEQ_TOKENS[temporario].caracter);
+						temporario = temporario - 2;
+					}
+						
+
 					return true;
+				}
+					
 				else {
 					NUM_TOKEN_ATUAL = NUM_TOKEN_ATUAL - 3;;
 					printf("Erro! esperava ';'");
@@ -2028,10 +2055,12 @@ bool parte_declaracao_subrotina() {
 //verif 8
 bool declaracao_procedimento() {
 	if (SEQ_TOKENS[NUM_TOKEN_ATUAL++].valor == PROCEDIMENTO) {
+		INDICE_ESCOPO++;
 		if (identificador(SEQ_TOKENS[NUM_TOKEN_ATUAL++].valor) == true) {
 			if (SEQ_TOKENS[NUM_TOKEN_ATUAL++].valor == PARENTESEESQ) {
 				if (parametros_formais() == true) {
 					if (SEQ_TOKENS[NUM_TOKEN_ATUAL++].valor == PARENTESEDIR) {
+
 						if (bloco() == true) {
 							if (SEQ_TOKENS[NUM_TOKEN_ATUAL++].valor == FIMPROCEDIMENTO)
 								return true;
@@ -2087,9 +2116,18 @@ bool parametros_formais() {
 //Verif 10
 bool parametro_formal() {
 	if (tipo(SEQ_TOKENS[NUM_TOKEN_ATUAL++].valor) == true) {
+		tipo_var = SEQ_TOKENS[NUM_TOKEN_ATUAL - 1].valor;
 		if (SEQ_TOKENS[NUM_TOKEN_ATUAL++].valor == DOISPONTOS) {
-			if (identificador(SEQ_TOKENS[NUM_TOKEN_ATUAL++].valor) == true)
+			if (identificador(SEQ_TOKENS[NUM_TOKEN_ATUAL++].valor) == true) {
+				temporario = NUM_TOKEN_ATUAL - 1;	
+				TABELA_SIMBOLOS[INDICE_SIMBOLO].variavel_escopo = INDICE_ESCOPO;
+				if (tipo_var == INTEIRO) TABELA_SIMBOLOS[INDICE_SIMBOLO].variavel_tipo = INTEIRO;
+				else if (tipo_var == BOOLEANO) TABELA_SIMBOLOS[INDICE_SIMBOLO].variavel_tipo = BOOLEANO;
+				strcpy(TABELA_SIMBOLOS[INDICE_SIMBOLO++].variavel_nome, SEQ_TOKENS[temporario].caracter);
+			
 				return true;
+			}
+				
 			else {
 				NUM_TOKEN_ATUAL = NUM_TOKEN_ATUAL - 3;
 				return false;
@@ -2153,14 +2191,26 @@ bool comando() {
 	return false;
 }
 
+bool varValida=false;
+int tipoValido;
 //verif 13
 bool atribuicao() {
 	int temp = SEQ_TOKENS[NUM_TOKEN_ATUAL++].valor;
 	if (variavel(temp) == true) {
+		int j;
+		for (j = 0; strcmp(TABELA_SIMBOLOS[j].variavel_nome,"") !=0; j++) {
+			if (strcmp(SEQ_TOKENS[NUM_TOKEN_ATUAL - 1].caracter, TABELA_SIMBOLOS[j].variavel_nome) ==0) {
+				if (TABELA_SIMBOLOS[j].variavel_escopo == INDICE_ESCOPO) {
+					varValida = true;
+					tipoValido = TABELA_SIMBOLOS[j].variavel_tipo;
+				}
+			}
+		}
+		if (varValida != true)printf("Erro semantico, variavel fora do escopo, ou não existe!");
+		varValida = false;
 
 		if (SEQ_TOKENS[NUM_TOKEN_ATUAL++].valor == ATRIBUICAO) {
 			if (expressao() == true) {
-				//NUM_TOKEN_ATUAL--;
 
 				if (SEQ_TOKENS[NUM_TOKEN_ATUAL++].valor == PONTOEVIRGULA)
 					return true;
@@ -2421,13 +2471,33 @@ bool termo() {
 
 //Verif 22
 bool fator() {
-	//--
 	int temp = SEQ_TOKENS[NUM_TOKEN_ATUAL++].valor;
-	if (variavel(temp)) return true;
-	else if (numero(temp))
+	if (variavel(temp)) {
+		//To aqui agora
+		//int j;
+		//
+		//for (j = 0; strcmp(TABELA_SIMBOLOS[j].variavel_nome, "") != 0; j++) {
+		//	if (strcmp(SEQ_TOKENS[NUM_TOKEN_ATUAL - 1].caracter, TABELA_SIMBOLOS[j].variavel_nome) == 0) {
+		//		if (TABELA_SIMBOLOS[j].variavel_escopo == INDICE_ESCOPO) {
+		//			varValida = true;
+		//			tipoValido = TABELA_SIMBOLOS[j].variavel_tipo;
+		//		}
+		//	}
+		//}
 		return true;
-	else if (bool1(temp))
+	}
+	else if (numero(temp)) {
+		if (tipoValido != INTEIRO)
+			printf("Erro semantico, atribuição de variaveis de tipos diferentes!");
 		return true;
+	}
+		
+	else if (bool1(temp)) {
+		if (tipoValido != BOOLEANO)
+			printf("Erro semantico, atribuição de variaveis de tipos diferentes!");
+		return true;
+	}
+		
 	else if (temp == PARENTESEESQ) {
 		if (expressao_simples() == true) {
 			if (temp == PARENTESEDIR) {
